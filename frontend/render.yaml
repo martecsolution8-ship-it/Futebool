@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: marbet-web
+    runtime: static
+    rootDir: frontend
+    buildCommand: ""
+    staticPublishPath: .
