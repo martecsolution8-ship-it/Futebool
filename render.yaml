@@ -1,0 +1,45 @@
+services:
+  - type: web
+    name: marbet-api
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install --upgrade pip setuptools wheel && pip install -r ../requirements.txt
+    startCommand: alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health/live
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.10
+      - key: APP_ENV
+        value: production
+      - key: API_V1_PREFIX
+        value: /api/v1
+      - key: DATABASE_URL
+        fromDatabase:
+          name: futebool
+          property: connectionString
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: JWT_ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: 60
+      - key: REFRESH_TOKEN_EXPIRE_DAYS
+        value: 30
+      - key: CORS_ORIGINS
+        value: https://marbet-web.onrender.com
+      - key: TIMEZONE
+        value: Africa/Luanda
+      - key: API_FOOTBALL_KEY
+        sync: false
+      - key: API_FOOTBALL_BASE_URL
+        value: https://v3.football.api-sports.io
+      - key: FOOTBALL_DATA_TOKEN
+        sync: false
+      - key: FOOTBALL_DATA_BASE_URL
+        value: https://api.football-data.org/v4
+      - key: API_FOOTBALL_DAILY_LIMIT
+        value: 100
+      - key: FOOTBALL_DATA_DAILY_LIMIT
+        value: 10
+      - key: DATA_CACHE_TTL_SECONDS
+        value: 300
