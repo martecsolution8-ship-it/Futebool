@@ -1,0 +1,17 @@
+{
+  "name": "MarBet",
+  "short_name": "MarBet",
+  "description": "Inteligência desportiva baseada em dados",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#07111f",
+  "theme_color": "#081426",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
