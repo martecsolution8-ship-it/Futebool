@@ -362,3 +362,32 @@ def test_unsupported_provider_is_rejected(client, db):
         headers={"Authorization": f"Bearer {create_access_token(str(admin.id))}"},
     )
     assert response.status_code == 422
+
+
+def test_fixture_endpoint_filters_today_and_recent_results(client, db):
+    from datetime import datetime, timedelta, timezone
+
+    competition = Competition(name="Liga de filtros", external_ids={})
+    db.add(competition)
+    db.flush()
+    season = Season(competition_id=competition.id, label="2026", external_ids={}, active=True)
+    home = Team(name="Casa F", external_ids={})
+    away = Team(name="Fora F", external_ids={})
+    db.add_all([season, home, away])
+    db.flush()
+    common = {"competition_id": competition.id, "season_id": season.id, "home_team_id": home.id,
+              "away_team_id": away.id, "provider": "test", "statistics": {}, "raw_hash": "test"}
+    now = datetime.now(timezone.utc)
+    # 5 jogos futuros agendados + 1 resultado: com limit=3 o resultado não cabia no pedido antigo
+    for i in range(5):
+        db.add(Fixture(**common, provider_fixture_id=f"future-{i}", kickoff_at=now + timedelta(days=2 + i), status=FixtureStatus.SCHEDULED))
+    db.add(Fixture(**common, provider_fixture_id="today", kickoff_at=now + timedelta(hours=1), status=FixtureStatus.SCHEDULED))
+    db.add(Fixture(**common, provider_fixture_id="done", kickoff_at=now - timedelta(days=1), status=FixtureStatus.FINISHED, home_score=2, away_score=1))
+    db.commit()
+
+    assert [f["provider_fixture_id"] for f in client.get("/api/v1/data/fixtures", params={"limit": 3}).json()] == ["today", "future-0", "future-1"]
+    finished = client.get("/api/v1/data/fixtures", params={"status": "FINISHED", "order": "desc", "limit": 3}).json()
+    assert [f["provider_fixture_id"] for f in finished] == ["done"]
+    window = client.get("/api/v1/data/fixtures", params={
+        "date_from": (now - timedelta(minutes=1)).isoformat(), "date_to": (now + timedelta(hours=2)).isoformat(), "order": "asc"}).json()
+    assert [f["provider_fixture_id"] for f in window] == ["today"]
