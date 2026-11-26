@@ -14,9 +14,7 @@ services:
       - key: API_V1_PREFIX
         value: /api/v1
       - key: DATABASE_URL
-        fromDatabase:
-          name: futebool
-          property: connectionString
+        sync: false
       - key: JWT_SECRET_KEY
         generateValue: true
       - key: JWT_ALGORITHM
@@ -47,3 +45,5 @@ services:
         value: "true"
       - key: WORKER_INTERVAL_SECONDS
         value: 3600
+      - key: WORKER_RUN_INTELLIGENCE
+        value: "false"
