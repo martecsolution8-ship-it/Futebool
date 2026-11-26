@@ -214,6 +214,9 @@ async def run_once() -> None:
         service = SportsSyncService(db)
         await _sync_football_data(db, service)
         await _sync_api_football(db, service)
+        if os.getenv("WORKER_RUN_INTELLIGENCE", "true").lower() in ("0", "false", "no"):
+            logger.warning("Inteligência desativada neste processo (WORKER_RUN_INTELLIGENCE=false)")
+            return
         engine = IntelligenceEngine(db)
         engine.train_and_backtest()
         engine.generate_predictions()
