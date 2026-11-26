@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import case, select
@@ -69,19 +70,42 @@ def list_players(team_id: uuid.UUID | None = None, limit: int = Query(default=10
 def list_fixtures(
     competition_id: uuid.UUID | None = None,
     season_id: uuid.UUID | None = None,
+    fixture_status: list[FixtureStatus] | None = Query(default=None, alias="status"),
+    date_from: datetime | None = None,
+    date_to: datetime | None = None,
+    order: str = Query(default="default", pattern="^(default|asc|desc)$"),
     limit: int = Query(default=100, ge=1, le=500),
     db: Session = Depends(get_db),
 ):
-    upcoming_statuses = (FixtureStatus.SCHEDULED, FixtureStatus.LIVE)
-    query = select(Fixture).order_by(
-        case((Fixture.status.in_(upcoming_statuses), 0), else_=1),
-        case((Fixture.status.in_(upcoming_statuses), Fixture.kickoff_at), else_=None).asc(),
-        case((Fixture.status == FixtureStatus.FINISHED, Fixture.kickoff_at), else_=None).desc(),
-    )
+    """Lista jogos.
+
+    Sem filtros mantém a ordem original (próximos primeiro, depois resultados recentes).
+    O frontend usa `status`, `date_from`/`date_to` e `order` para pedir explicitamente
+    os jogos de hoje e os resultados recentes, que de outra forma ficavam fora do
+    `limit` quando há muitos jogos agendados.
+    """
+    live_statuses = (FixtureStatus.SCHEDULED, FixtureStatus.LIVE, FixtureStatus.INTERVAL)
+    query = select(Fixture)
     if competition_id:
         query = query.where(Fixture.competition_id == competition_id)
     if season_id:
         query = query.where(Fixture.season_id == season_id)
+    if fixture_status:
+        query = query.where(Fixture.status.in_(fixture_status))
+    if date_from:
+        query = query.where(Fixture.kickoff_at >= date_from)
+    if date_to:
+        query = query.where(Fixture.kickoff_at < date_to)
+    if order == "asc":
+        query = query.order_by(Fixture.kickoff_at.asc())
+    elif order == "desc":
+        query = query.order_by(Fixture.kickoff_at.desc())
+    else:
+        query = query.order_by(
+            case((Fixture.status.in_(live_statuses), 0), else_=1),
+            case((Fixture.status.in_(live_statuses), Fixture.kickoff_at), else_=None).asc(),
+            case((Fixture.status == FixtureStatus.FINISHED, Fixture.kickoff_at), else_=None).desc(),
+        )
     return db.scalars(query.limit(limit)).all()
 
 
