@@ -8,7 +8,6 @@ from sqlalchemy import func, select
 from app.db.session import SessionLocal
 from app.models.sports import ApiUsage, Competition, Fixture, FixtureStatus, Season, SyncRun, SyncStatus
 from app.services.sync_service import SportsSyncService
-from app.intelligence.engine import IntelligenceEngine
 
 
 logger = logging.getLogger(__name__)
@@ -214,9 +213,10 @@ async def run_once() -> None:
         service = SportsSyncService(db)
         await _sync_football_data(db, service)
         await _sync_api_football(db, service)
-        if os.getenv("WORKER_RUN_INTELLIGENCE", "true").lower() in ("0", "false", "no"):
+        if os.getenv("WORKER_RUN_INTELLIGENCE", "false").lower() in ("0", "false", "no"):
             logger.warning("Inteligência desativada neste processo (WORKER_RUN_INTELLIGENCE=false)")
             return
+        from app.intelligence.engine import IntelligenceEngine  # import tardio: evita carregar numpy/scipy/sklearn na API
         engine = IntelligenceEngine(db)
         engine.train_and_backtest()
         engine.generate_predictions()
