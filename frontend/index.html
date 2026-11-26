@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="pt-AO">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#081426">
+  <meta name="description" content="MarBet - inteligência desportiva baseada em dados">
+  <title>MarBet</title>
+  <link rel="icon" href="/favicon.png" type="image/png">
+  <link rel="apple-touch-icon" href="/favicon.png">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="/styles.css?v=6">
+  <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js" defer></script>
+  <script src="/app-config.js" defer></script>
+  <script src="/app.js?v=8" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Navegação principal">
+      <a class="brand" href="#inicio" aria-label="MarBet início">
+        <img class="brand-logo" src="/logo.png" alt="Marbet">
+      </a>
+      <nav class="side-nav" id="desktopNav"></nav>
+      <button class="profile-mini" id="profileMini" type="button">
+        <span class="avatar">M</span>
+        <span>
+          <strong>Conta MarBet</strong>
+          <small>Entrar</small>
+        </span>
+        <i data-lucide="chevron-right"></i>
+      </button>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow" id="todayLabel">Hoje</p>
+          <h1 id="pageTitle">Início</h1>
+        </div>
+        <div class="topbar-actions">
+          <button class="icon-button" id="refreshButton" type="button" aria-label="Atualizar dados" title="Atualizar dados">
+            <i data-lucide="refresh-cw"></i>
+          </button>
+        </div>
+      </header>
+
+      <div class="api-state" id="apiState" role="status">
+        <i data-lucide="radio-tower"></i>
+        <span>A carregar jogos e resultados...</span>
+      </div>
+
+      <div id="viewRoot" class="view-root" aria-live="polite"></div>
+    </main>
+
+    <nav class="mobile-nav" id="mobileNav" aria-label="Navegação móvel"></nav>
+  </div>
+
+  <dialog class="auth-dialog" id="authDialog">
+    <form method="dialog" class="dialog-shell" id="authForm">
+      <div class="dialog-header">
+        <div>
+          <p class="eyebrow">Acesso seguro</p>
+          <h2 id="authTitle">Entrar</h2>
+        </div>
+        <button class="icon-button" value="cancel" type="submit" aria-label="Fechar">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <div class="field" id="displayNameField" hidden>
+        <label for="displayName">Nome</label>
+        <input id="displayName" name="displayName" autocomplete="name">
+      </div>
+      <div class="field">
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" autocomplete="email" required>
+      </div>
+      <div class="field">
+        <label for="password">Palavra-passe</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" minlength="12" required>
+      </div>
+      <p class="form-error" id="authError" role="alert"></p>
+      <button class="primary-button" id="authSubmit" type="submit">Entrar</button>
+      <button class="text-button" id="authModeButton" type="button">Criar conta</button>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
