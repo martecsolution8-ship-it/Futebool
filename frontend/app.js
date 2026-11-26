@@ -40,6 +40,27 @@ function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>'"]/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[char]);
 }
 
+// Nomes de métodos/modelos nunca são mostrados ao utilizador: tudo é apresentado como "Profissionais".
+const TECHNICAL_TERMS = [
+  [/\(\s*Dixon[\s-]*Coles\s*(?:e|and|\+|\/)\s*Elo\s*\)/gi, "(Profissionais)"],
+  [/Dixon[\s-]*Coles(?:\s+regulari[sz]ado)?(?:\s*\([^)]*\))?/gi, "Profissionais"],
+  [/\bElo\b(?:\s+rating)?/gi, "Profissionais"],
+  [/\bPoisson\b(?:\s+(?:bivariado|ponderado))?/gi, "Profissionais"],
+  [/\(\s*Log[\s-]*Loss\s*\)/gi, ""],
+  [/\b(?:Log[\s-]*Loss|Brier(?:\s+score)?)\b/gi, "fiabilidade"],
+  [/\b(?:strength-dc|poisson-elo)\b(?:\s+\d+(?:\.\d+)*)?/gi, "Profissionais"],
+];
+
+function publicText(value) {
+  let text = String(value ?? "");
+  TECHNICAL_TERMS.forEach(([pattern, replacement]) => { text = text.replace(pattern, replacement); });
+  return text
+    .replace(/Profissionais(?:\s*(?:,|e|\+|\/|com)\s*Profissionais)+/gi, "Profissionais")
+    .replace(/\s{2,}/g, " ")
+    .replace(/\s+([.,;])/g, "$1")
+    .trim();
+}
+
 function formatDate(value) {
   if (!value) return "Data não disponível";
   const date = new Date(value);
@@ -316,7 +337,7 @@ function riskNotes(prediction) {
   const notes = [];
   const fewest = Math.min(Number(r.home_matches) || 0, Number(r.away_matches) || 0);
   if (fewest > 0 && fewest < 8) notes.push(`Uma das equipas tem apenas ${fewest} jogos no histórico, por isso a estimativa é menos estável.`);
-  if (Number(prediction.confidence) < 0.55) notes.push("Confiança limitada: poucos dados ou modelo ainda pouco validado.");
+  if (Number(prediction.confidence) < 0.55) notes.push("Confiança limitada: poucos dados ou análise ainda pouco validada.");
   if (Number.isFinite(Number(r.edge)) && Number(r.edge) < 0.06) notes.push("A vantagem sobre a média histórica é pequena.");
   if (r.calibrated === false) notes.push("As probabilidades ainda não foram calibradas com resultados suficientes.");
   notes.push("O futebol tem muita variância: mesmo uma probabilidade alta falha com frequência.");
@@ -329,10 +350,10 @@ function analysisDetails(prediction, home, away) {
   const gh = num(r.expected_goals_home, 2);
   const ga = num(r.expected_goals_away, 2);
   if (gh !== null && ga !== null) {
-    lines.push(`<li>Golos esperados pelo modelo: ${escapeHtml(home)} ${gh} – ${ga} ${escapeHtml(away)}${r.most_likely_score ? ` (resultado mais provável: ${escapeHtml(r.most_likely_score)})` : ""}.</li>`);
+    lines.push(`<li>Golos esperados pelos Profissionais: ${escapeHtml(home)} ${gh} – ${ga} ${escapeHtml(away)}${r.most_likely_score ? ` (resultado mais provável: ${escapeHtml(r.most_likely_score)})` : ""}.</li>`);
   }
   const base = pct(r.base_rate);
-  if (base !== null) lines.push(`<li>Média histórica deste resultado nesta competição: ${base}. Estimativa do modelo: ${pct(prediction.probability)}.</li>`);
+  if (base !== null) lines.push(`<li>Média histórica deste resultado nesta competição: ${base}. Estimativa Profissionais: ${pct(prediction.probability)}.</li>`);
   lines.push(formLine(home, r, "home"));
   lines.push(formLine(away, r, "away"));
   const h2hMatches = Number(r.form?.h2h_matches ?? r.h2h_matches);
@@ -342,11 +363,11 @@ function analysisDetails(prediction, home, away) {
   if (Number.isFinite(Number(r.finished_matches)) && Number(r.finished_matches) > 0) {
     lines.push(`<li>Calculado com ${r.finished_matches} jogos terminados (${r.home_matches ?? "?"} da equipa da casa e ${r.away_matches ?? "?"} da visitante).</li>`);
   }
-  (Array.isArray(r.factors_for) ? r.factors_for : []).forEach(text => lines.push(`<li>${escapeHtml(text)}</li>`));
-  if (r.analysed_at) lines.push(`<li>Análise feita em ${escapeHtml(formatDate(r.analysed_at))} com o modelo ${escapeHtml(r.model || "MarBet")}${Array.isArray(r.data_sources) && r.data_sources.length ? `; dados de ${escapeHtml(r.data_sources.join(", "))}` : ""}.</li>`);
+  (Array.isArray(r.factors_for) ? r.factors_for : []).forEach(text => lines.push(`<li>${escapeHtml(publicText(text))}</li>`));
+  if (r.analysed_at) lines.push(`<li>Análise feita em ${escapeHtml(formatDate(r.analysed_at))} com a análise Profissionais${Array.isArray(r.data_sources) && r.data_sources.length ? `; dados de ${escapeHtml(r.data_sources.join(", "))}` : ""}.</li>`);
   lines.push("<li>Odds: não disponíveis nas fontes de dados gratuitas, por isso não é avaliado valor de aposta, apenas probabilidade.</li>");
   if (!lines.length) return "<p>Ainda não há dados suficientes para apresentar uma explicação.</p>";
-  return `<ul class="analysis-list">${lines.join("")}</ul><p class="analysis-title">Principais riscos</p><ul class="analysis-list">${riskNotes(prediction).map(note => `<li>${escapeHtml(note)}</li>`).join("")}</ul>`;
+  return `<ul class="analysis-list">${lines.join("")}</ul><p class="analysis-title">Principais riscos</p><ul class="analysis-list">${riskNotes(prediction).map(note => `<li>${escapeHtml(publicText(note))}</li>`).join("")}</ul>`;
 }
 
 function predictionCard(prediction, highlight = false) {
@@ -410,7 +431,7 @@ function marketTable(fixtureId) {
     const published = item.rationale?.published_pick ? ` <small class="published-tag">palpite publicado</small>` : "";
     return `<div class="row"><span>${escapeHtml(marketLabel(item.market))} · ${escapeHtml(selectionLabel(item.selection))}${published}</span><strong>${formatProbability(item.probability)}</strong></div>`;
   }).join("");
-  return `<article class="panel market-table"><h3>Estimativas do modelo para este jogo</h3>${rows}<p class="prediction-disclaimer">Só um mercado por jogo é publicado como palpite, o que tiver maior vantagem sobre a média histórica.</p></article>`;
+  return `<article class="panel market-table"><h3>Estimativas Profissionais para este jogo</h3>${rows}<p class="prediction-disclaimer">Só um mercado por jogo é publicado como palpite, o que tiver maior vantagem sobre a média histórica.</p></article>`;
 }
 
 function renderInicio() {
@@ -468,7 +489,7 @@ function renderPrognosticos() {
   const clear = selected ? `<button class="filter-button" type="button" data-clear-selection>Ver todos os palpites</button>` : "";
   if (selected) ensureDetail(selected);
   const empty = selected && !visible.length
-    ? `${fixture ? gameCard(fixture, false) : ""}<p class="prediction-disclaimer">O MarBet analisou este jogo, mas não encontrou uma seleção que cumprisse os critérios estatísticos necessários para publicar um palpite. As probabilidades abaixo são apenas estimativas do modelo, não recomendações de aposta.</p>`
+    ? `${fixture ? gameCard(fixture, false) : ""}<p class="prediction-disclaimer">Os Profissionais analisaram este jogo, mas não encontrou uma seleção que cumprisse os critérios estatísticos necessários para publicar um palpite. As probabilidades abaixo são apenas estimativas do modelo, não recomendações de aposta.</p>`
     : "";
   return `
     <div class="section-head"><div><h2>${selected ? "Análise do jogo" : "Análises dos jogos"}</h2></div>${clear}</div>
@@ -486,7 +507,7 @@ function renderResultados() {
   const pending = state.history.filter(item => item.status === "PENDING").length;
   const total = correct + incorrect;
   const perf = state.performance?.markets || {};
-  const perfRows = Object.entries(perf).sort(([a], [b]) => (a === "TOTAL" ? -1 : b === "TOTAL" ? 1 : a.localeCompare(b))).map(([key, m]) => `<div class="row"><span>${key === "TOTAL" ? "Todos os mercados" : escapeHtml(marketLabel(key))} (${m.samples})</span><strong>Acerto ${Math.round(m.hit_rate * 100)}% · Brier ${num(m.brier_score, 3)} · Log Loss ${num(m.log_loss, 3)}</strong></div>`).join("");
+  const perfRows = Object.entries(perf).sort(([a], [b]) => (a === "TOTAL" ? -1 : b === "TOTAL" ? 1 : a.localeCompare(b))).map(([key, m]) => `<div class="row"><span>${key === "TOTAL" ? "Todos os mercados" : escapeHtml(marketLabel(key))} (${m.samples})</span><strong>Acerto ${Math.round(m.hit_rate * 100)}%</strong></div>`).join("");
   const accuracy = total ? `${Math.round(correct / total * 100)}%` : "—";
   const errorRate = total ? `${Math.round(incorrect / total * 100)}%` : "—";
   if (!state.history.length) return emptyState("Ainda não há resultados", "Os palpites publicados e os respetivos resultados confirmados aparecerão aqui.", "history");
@@ -504,7 +525,7 @@ function renderResultados() {
   const pendingItems = state.history.filter(item => item.status === "PENDING");
   return `
     <section class="result-summary"><article><span>Total avaliados</span><strong>${total}</strong></article><article><span>Acertos</span><strong>${correct}</strong></article><article><span>Erros</span><strong>${incorrect}</strong></article><article><span>Taxa de acerto</span><strong>${accuracy}</strong></article><article><span>Taxa de erro</span><strong>${errorRate}</strong></article><article><span>Pendentes</span><strong>${pending}</strong></article></section>
-    ${perfRows ? `<article class="panel market-table"><h3>Desempenho dos palpites publicados</h3>${perfRows}<p class="prediction-disclaimer">Brier e Log Loss mais baixos são melhores. Amostras pequenas variam muito.</p></article>` : ""}
+    ${perfRows ? `<article class="panel market-table"><h3>Desempenho dos palpites publicados</h3>${perfRows}<p class="prediction-disclaimer">Amostras pequenas variam muito.</p></article>` : ""}
     <div class="section-head"><div><h2>Palpites acertados</h2></div></div>
     ${hits.length ? hits.map(historyCard).join("") : emptyState("Sem acertos avaliados", "Os acertos aparecerão quando houver histórico terminado confirmado.", "circle-check")}
     <div class="section-head"><div><h2>Palpites errados</h2></div></div>
@@ -563,7 +584,7 @@ async function loadData() {
 
     const [teams, fixtures, competitions, picks, performance, history, providers] = await Promise.all([
       apiRequest("/api/v1/data/teams?limit=500"),
-      apiRequest("/api/v1/data/fixtures?limit=500"),
+      loadFixtures(),
       apiRequest("/api/v1/data/competitions"),
       apiRequest("/api/v1/intelligence/picks?limit=60"),
       apiRequest("/api/v1/intelligence/performance"),
@@ -607,6 +628,26 @@ async function loadData() {
   } finally {
     render();
   }
+}
+
+function luandaDayRange() {
+  const key = localDateKey(new Date());
+  const start = new Date(`${key}T00:00:00+01:00`);
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+  return { start: start.toISOString(), end: end.toISOString() };
+}
+
+// Pedidos separados: jogos de hoje, próximos e resultados recentes.
+// Um único pedido com limite fazia com que os jogos agendados (muitos) empurrassem hoje e os resultados para fora.
+function loadFixtures() {
+  const { start, end } = luandaDayRange();
+  const q = params => new URLSearchParams(params).toString();
+  const open = ["SCHEDULED", "LIVE", "INTERVAL"].map(s => `status=${s}`).join("&");
+  return Promise.all([
+    apiRequest(`/api/v1/data/fixtures?${q({ date_from: start, date_to: end, order: "asc", limit: 500 })}`),
+    apiRequest(`/api/v1/data/fixtures?${open}&${q({ date_from: end, order: "asc", limit: 500 })}`),
+    apiRequest(`/api/v1/data/fixtures?${q({ status: "FINISHED", order: "desc", limit: 500 })}`),
+  ]).then(groups => uniqueFixtures(groups.flat()));
 }
 
 function showToast(message) {
