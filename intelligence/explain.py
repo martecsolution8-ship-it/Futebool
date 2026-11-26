@@ -53,7 +53,7 @@ def build_explanation(
     if validation and validation.get("validated"):
         factors.append(
             f"Este mercado foi testado em {validation['samples']} jogos que o modelo não tinha visto "
-            f"e ficou {_num(validation['gain'] * 100, 1)}% melhor do que a média histórica (Log Loss).")
+            f"e ficou {_num(validation['gain'] * 100, 1)}% melhor do que a média histórica.")
 
     fewest = min(home_matches, away_matches)
     if fewest < 12:
@@ -67,7 +67,7 @@ def build_explanation(
     elif calibration_state == "FITTED":
         risks.append("A calibração das probabilidades ainda não foi confirmada em dados novos.")
     if model_agreement < 0.5:
-        risks.append("Os dois modelos (Dixon-Coles e Elo) discordam, o que reduz a segurança da estimativa.")
+        risks.append("Os métodos Profissionais discordam entre si, o que reduz a segurança da estimativa.")
     if base_rate is not None and probability - base_rate < 0.06:
         risks.append("A vantagem sobre a média histórica é pequena.")
     if not odds_assessed:
