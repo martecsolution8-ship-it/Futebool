@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import require_roles
@@ -16,6 +16,9 @@ from intelligence.markets import NO_PICK_MESSAGE, REFUSAL_MESSAGES, analysis_eli
 from intelligence.picks import dedupe_matches, summarize_settled
 
 router = APIRouter(prefix="/intelligence", tags=["intelligence"])
+
+# Filtro feito na base de dados: evita carregar para a memória todos os palpites não publicados.
+PUBLISHED = Prediction.rationale["published_pick"].as_boolean().is_(True)
 
 
 def _aware(value: datetime | None) -> datetime | None:
@@ -62,7 +65,7 @@ def _settled_picks(db: Session) -> list[SettledPick]:
         select(Prediction, Competition.name)
         .join(Fixture, Fixture.id == Prediction.fixture_id)
         .join(Competition, Competition.id == Fixture.competition_id)
-        .where(Prediction.status == PredictionStatus.SETTLED)
+        .where(Prediction.status == PredictionStatus.SETTLED, PUBLISHED)
     )
     result = []
     for prediction, competition_name in db.execute(query).all():
@@ -101,10 +104,11 @@ def picks(limit: int = Query(default=60, ge=1, le=200), db: Session = Depends(ge
         select(Prediction, Fixture)
         .join(Fixture, Fixture.id == Prediction.fixture_id)
         .where(Prediction.status == PredictionStatus.PENDING)
+        .where(PUBLISHED)
         .where(Fixture.status == FixtureStatus.SCHEDULED, Fixture.kickoff_at > datetime.now(timezone.utc))
         .order_by(Fixture.kickoff_at.asc())
     )
-    rows = [(prediction, fixture) for prediction, fixture in db.execute(query).all() if _is_pick(prediction)]
+    rows = [(prediction, fixture) for prediction, fixture in db.execute(query).all()]
     # o mesmo jogo vindo de dois fornecedores aparece uma só vez
     rows = dedupe_matches(
         rows,
@@ -118,7 +122,7 @@ def picks(limit: int = Query(default=60, ge=1, le=200), db: Session = Depends(ge
 @router.get("/performance")
 def performance(db: Session = Depends(get_db)):
     """Desempenho real dos prognósticos PUBLICADOS e já resolvidos."""
-    settled = db.scalars(select(Prediction).where(Prediction.status == PredictionStatus.SETTLED)).all()
+    settled = db.scalars(select(Prediction).where(Prediction.status == PredictionStatus.SETTLED, PUBLISHED)).all()
     evaluated = [p for p in settled if _is_pick(p) and p.is_correct is not None]
     rows = [
         (p.market, _published_probability(p), bool(p.is_correct))
@@ -126,8 +130,9 @@ def performance(db: Session = Depends(get_db)):
     ]
     correct = sum(1 for p in evaluated if p.is_correct)
     total = len(evaluated)
-    pending = db.scalars(select(Prediction).where(Prediction.status == PredictionStatus.PENDING)).all()
-    pending_count = sum(1 for p in pending if _is_pick(p))
+    pending_count = db.scalar(
+        select(func.count()).select_from(Prediction).where(Prediction.status == PredictionStatus.PENDING, PUBLISHED)
+    ) or 0
     return {
         "total_evaluated": total,
         "correct": correct,
@@ -146,7 +151,7 @@ def top8(limit: int = Query(default=8, ge=1, le=8), db: Session = Depends(get_db
     query = (
         select(Prediction)
         .join(Fixture, Fixture.id == Prediction.fixture_id)
-        .where(Prediction.status == PredictionStatus.PENDING)
+        .where(Prediction.status == PredictionStatus.PENDING, PUBLISHED)
         .where(Fixture.status == FixtureStatus.SCHEDULED, Fixture.kickoff_at > datetime.now(timezone.utc))
         .order_by(Prediction.confidence.desc(), Prediction.probability.desc())
     )
@@ -239,17 +244,18 @@ def history(
     picks_only: bool = Query(default=True),
     db: Session = Depends(get_db),
 ):
-    items = db.scalars(
-        select(Prediction).where(Prediction.status == PredictionStatus.SETTLED).order_by(Prediction.settled_at.desc()).limit(limit * 8 if picks_only else limit)
-    ).all()
+    settled_query = select(Prediction).where(Prediction.status == PredictionStatus.SETTLED)
     if picks_only:
-        items = [item for item in items if _is_pick(item)]
+        settled_query = settled_query.where(PUBLISHED)
+    items = db.scalars(settled_query.order_by(Prediction.settled_at.desc()).limit(limit)).all()
+    if picks_only:
         pending = db.scalars(
             select(Prediction)
-            .where(Prediction.status == PredictionStatus.PENDING)
+            .where(Prediction.status == PredictionStatus.PENDING, PUBLISHED)
             .order_by(Prediction.generated_at.desc())
+            .limit(limit)
         ).all()
-        items = items + [item for item in pending if _is_pick(item)]
+        items = items + list(pending)
     return items[:limit]
 
 
