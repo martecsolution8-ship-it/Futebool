@@ -47,3 +47,7 @@ services:
         value: 3600
       - key: WORKER_RUN_INTELLIGENCE
         value: "false"
+      - key: INTELLIGENCE_FUTURE_WINDOW_DAYS
+        value: "7"
+      - key: INTELLIGENCE_FEATURE_BATCH_SIZE
+        value: "50"
