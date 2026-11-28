@@ -21,3 +21,12 @@ __pycache__/
 
 # Local test database
 backend/test_marbet.db
+
+# Local Python and test artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.pytest_cache-*
+backend.pytest_cache-*
+backend/.pytest_cache.gitignore
+backend/test_marbet.db
