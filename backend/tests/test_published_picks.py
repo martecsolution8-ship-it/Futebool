@@ -55,11 +55,12 @@ def test_same_match_from_two_providers_counts_once(db):
 def test_settlement_does_not_score_cancelled_suspended_or_live(db):
     _league(db)
     engine = IntelligenceEngine(db)
+    model = engine._model_version()
     fixture = db.query(Fixture).filter(Fixture.status == FixtureStatus.SCHEDULED).first()
     fixture.status = FixtureStatus.CANCELLED
     prediction = Prediction(
         fixture_id=fixture.id,
-        model_version_id=db.query(ModelVersion).first().id,
+        model_version_id=model.id,
         market="1X2",
         selection="HOME",
         probability=0.70,
@@ -81,7 +82,7 @@ def test_settlement_does_not_score_cancelled_suspended_or_live(db):
 def test_settlement_scores_hit_error_and_is_idempotent(db):
     _league(db)
     engine = IntelligenceEngine(db)
-    model = db.query(ModelVersion).first()
+    model = engine._model_version()
     fixtures = db.query(Fixture).filter(Fixture.status == FixtureStatus.SCHEDULED).limit(2).all()
 
     fixtures[0].status = FixtureStatus.FINISHED

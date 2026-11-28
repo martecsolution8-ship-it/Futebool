@@ -171,6 +171,18 @@ class SportsSyncService:
             team.external_ids = {**team.external_ids, provider: provider_id}
         return team
 
+    def _covered_by_football_data_uk(self, home_team_id: uuid.UUID, away_team_id: uuid.UUID, kickoff: datetime) -> bool:
+        tolerance = timedelta(hours=36)
+        return self.db.scalar(
+            select(Fixture.id).where(
+                Fixture.provider == "football-data-uk",
+                Fixture.home_team_id == home_team_id,
+                Fixture.away_team_id == away_team_id,
+                Fixture.kickoff_at >= kickoff - tolerance,
+                Fixture.kickoff_at <= kickoff + tolerance,
+            ).limit(1)
+        ) is not None
+
     async def sync_competitions(self, provider: str) -> SyncRun:
         run = SyncRun(provider=provider, operation="competitions", status=SyncStatus.RUNNING)
         self.db.add(run)
@@ -367,6 +379,10 @@ class SportsSyncService:
                 fixture = self.db.scalar(
                     select(Fixture).where(Fixture.provider == provider, Fixture.provider_fixture_id == item["provider_id"])
                 )
+                if fixture is None and self._covered_by_football_data_uk(
+                    home_team.id, away_team.id, self._normalize_datetime(item["kickoff_at"])
+                ):
+                    continue  # o mesmo jogo já existe, importado do football-data.co.uk
                 if fixture is None:
                     fixture = Fixture(
                         competition_id=competition.id,
