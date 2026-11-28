@@ -10,3 +10,14 @@ node_modules/
 .mypy_cache/
 .DS_Store
 *.log
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Pytest
+.pytest_cache/
+.pytest_cache-*
+
+# Local test database
+backend/test_marbet.db
