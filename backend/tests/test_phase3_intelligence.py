@@ -189,7 +189,7 @@ def test_settlement_is_idempotent_and_preserves_probability(db):
         probability=0.73,
         confidence=0.80,
         data_quality=0.90,
-        rationale={"test": True},
+        rationale={"test": True, "published_pick": True},
         status=PredictionStatus.PENDING,
     )
     db.add(prediction)

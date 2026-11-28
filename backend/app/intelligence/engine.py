@@ -18,6 +18,7 @@ for _candidate in (Path(__file__).resolve().parents[2], Path(__file__).resolve()
 
 from app.core.config import get_settings
 from app.intelligence import immutability  # noqa: F401  (regista a proteção dos palpites publicados)
+from app.intelligence.odds_lookup import quote_for
 from app.models.intelligence import (
     BacktestRun,
     EngineRun,
@@ -451,6 +452,15 @@ class IntelligenceEngine:
     # ------------------------------------------------------------------ geração
 
     @serialized_engine_operation
+    def _assess_with_market_odds(self, fixture_id, market: str, selection: str, probability: float) -> dict:
+        """Valor esperado com odds REAIS guardadas (fixture_odds); sem odds recentes não afirma valor."""
+        cache = self.__dict__.setdefault("_odds_cache", {})
+        quote = quote_for(self.db, cache, fixture_id, market, selection)
+        assessment = assess_value(probability, quote["price"] if quote else None, self.settings.intelligence_min_ev)
+        if quote:
+            assessment["quote"] = quote
+        return assessment
+
     def generate_predictions(self) -> EngineRun:
         run = EngineRun(operation="generate_predictions", status=EngineRunStatus.RUNNING)
         model = self._model_version()
@@ -641,7 +651,7 @@ class IntelligenceEngine:
                         "summary": explanation["summary"],
                         "factors_for": explanation["factors_for"],
                         "risks": explanation["risks"],
-                        "odds": assess_value(probability, None, self.settings.intelligence_min_ev),
+                        "odds": self._assess_with_market_odds(fixture.id, est.market, est.selection, probability),
                         "feature_version": self.feature_version,
                         "form": form,
                     }

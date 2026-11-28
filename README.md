@@ -35,3 +35,7 @@ Consulte `.env.example`. `JWT_SECRET_KEY` deve ser gerado aleatoriamente em prod
 ## Implantação
 
 O ficheiro `render.yaml` define o serviço de API, o PostgreSQL e a reserva do Worker. Os serviços pagos de Render devem ser confirmados antes da implantação. O Worker será ativado somente após existir uma implementação de tarefas definida; não contém uma rotina fictícia nesta fase.
+
+## Fase 4 - Histórico e odds
+
+Importador do football-data.co.uk, conectores de odds (The Odds API, 5DollarFootballAPI) e valor esperado no motor. Ver `documentation/FASE_4_FOOTBALL_DATA_UK.md`.

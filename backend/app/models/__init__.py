@@ -12,6 +12,7 @@ from app.models.intelligence import (
     PredictionStatus,
     TrainingRun,
 )
+from app.models.odds import FixtureOdds, TeamAlias
 from app.models.sports import (
     ApiCache,
     ApiUsage,
@@ -31,5 +32,5 @@ __all__ = [
     "Player", "Season", "SyncRun", "SyncStatus", "Team",
     "BacktestRun", "EngineRun", "EngineRunStatus", "EvaluationMetric",
     "FeatureSnapshot", "ModelStatus", "ModelVersion", "Prediction",
-    "PredictionStatus", "TrainingRun",
+    "PredictionStatus", "TrainingRun", "FixtureOdds", "TeamAlias",
 ]
